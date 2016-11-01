@@ -126,7 +126,7 @@ def processFile(file_path):
     print "dzial:", get_section(content)
     print "slowa kluczowe:", get_key_words(content)
     print "liczba zdan:", len(get_number_of_sentences(p_to_meta_content))
-    print "liczba skrotow:", len(get_shortcuts(p_to_meta_content))
+    print "liczba skrotow:", (get_shortcuts(p_to_meta_content))
     print "liczba liczb calkowitych z zakresu int:", len(get_number_of_integers(p_to_meta_content))
     print "liczba liczb zmiennoprzecinkowych:", len(get_number_of_floats(p_to_meta_content))
     print "liczba dat:", len(get_number_of_dates(p_to_meta_content))
