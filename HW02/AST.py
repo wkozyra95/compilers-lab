@@ -14,6 +14,8 @@ class BinExpr(Node):
 
 
 class Const(Node):
+    def __init__(self, value):
+        self.value = value
     pass
     #...
 

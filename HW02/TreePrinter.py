@@ -18,9 +18,13 @@ class TreePrinter:
 
 
     @addToClass(AST.BinExpr)
-    def printTree(self):
+    def printTree(self, indent):
+        print '|' * indent + self.op
+        self.left.printTree(indent + 1)
+        self.right.printTree(indent + 1)
         pass
         # ...
+
 
     @addToClass(AST.Program)
     def printTree(self, indent = 0):
@@ -28,11 +32,19 @@ class TreePrinter:
         for e in self.dec:
             e.printTree(indent)
 
+
     @addToClass(AST.Declaration)
     def printTree(self, indent):
         print '|' * indent + 'DECL'
         for e in self.inits:
             e.printTree(indent + 1)
+
+
+    @addToClass(AST.Const)
+    def printTree(self, indent):
+        print '|' * indent
+
+
 
     # @addToClass ...
     # ...

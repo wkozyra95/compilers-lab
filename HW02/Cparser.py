@@ -41,7 +41,7 @@ class Cparser(object):
 
     def p_program(self, p):
         """program : declarations fundefs_opt instructions_opt"""
-        p[0] = AST.Program(p[1],p[2],p[3])
+        p[0] = AST.Program(p[1], p[2], p[3])
 
 
     def p_declarations(self, p):
@@ -78,10 +78,20 @@ class Cparser(object):
         """instructions_opt : instructions
                             | """
 
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[0] = []
+
 
     def p_instructions(self, p):
         """instructions : instructions instruction
                         | instruction """
+
+        if len(p) == 3:
+            p[0] = p[1] + [p[2]]
+        else:
+            p[0] = [p[1]]
 
 
     def p_instruction(self, p):
@@ -151,34 +161,45 @@ class Cparser(object):
         """const : INTEGER
                  | FLOAT
                  | STRING"""
-
+        p[0] = AST.Const(p[1])
 
     def p_expression(self, p):
         """expression : const
                       | ID
-                      | expression '+' expression
-                      | expression '-' expression
-                      | expression '*' expression
-                      | expression '/' expression
-                      | expression '%' expression
-                      | expression '|' expression
-                      | expression '&' expression
-                      | expression '^' expression
-                      | expression AND expression
-                      | expression OR expression
-                      | expression SHL expression
-                      | expression SHR expression
-                      | expression EQ expression
-                      | expression NEQ expression
-                      | expression '>' expression
-                      | expression '<' expression
-                      | expression LE expression
-                      | expression GE expression
+                      | bin_expression
                       | '(' expression ')'
                       | '(' error ')'
                       | ID '(' expr_list_or_empty ')'
                       | ID '(' error ')' """
 
+        if len(p) == 2:
+            p[0] = p[1]
+        elif len(p) == 4:
+            p[0] = p[2]
+        elif len(p) == 5:
+            p[0] = p[3]
+
+    def p_bin_expression(self, p):
+        """bin_expression : expression '+' expression
+                        | expression '-' expression
+                        | expression '*' expression
+                        | expression '/' expression
+                        | expression '%' expression
+                        | expression '|' expression
+                        | expression '&' expression
+                        | expression '^' expression
+                        | expression AND expression
+                        | expression OR expression
+                        | expression SHL expression
+                        | expression SHR expression
+                        | expression EQ expression
+                        | expression NEQ expression
+                        | expression '>' expression
+                        | expression '<' expression
+                        | expression LE expression
+                        | expression GE expression"""
+
+        p[0] = AST.BinExpr(p[2], p[1], p[3])
 
     def p_expr_list_or_empty(self, p):
         """expr_list_or_empty : expr_list
