@@ -1,8 +1,6 @@
-
 import sys
 import ply.yacc as yacc
 from Cparser import Cparser
-from TreePrinter import TreePrinter
 from TypeChecker import TypeChecker
 
 
@@ -23,3 +21,5 @@ if __name__ == '__main__':
     # new
     typeChecker = TypeChecker()
     typeChecker.visit(ast)
+
+    print "End checking"

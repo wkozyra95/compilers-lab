@@ -14,10 +14,10 @@ class VariableSymbol(Symbol):
 
 class FunctionSymbol(Symbol):
 
-    def __init__(self, name, type, parameters):
+    def __init__(self, name, type):
         self.type = type
         self.name = name
-        self.parameters = parameters
+        self.parameters = []
 
 
 class SymbolTable(object):
@@ -45,7 +45,8 @@ class SymbolTable(object):
         if var_type is not None:
             return var_type
         else:
-            return self.parent.getAny(name)
+            if self.parent is not None:
+                return self.parent.getAny(name)
 
     def getParentScope(self):
         return self.parent

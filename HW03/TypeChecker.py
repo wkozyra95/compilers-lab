@@ -1,8 +1,8 @@
 #!/usr/bin/python
 from collections import defaultdict
 
-import AST
-import SymbolTable
+from AST import *
+from SymbolTable import *
 
 ttype = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
 
@@ -52,12 +52,12 @@ class NodeVisitor(object):
             for elem in node:
                 self.visit(elem)
         else:
-            for child in node.children:
+            for child in node.list:
                 if isinstance(child, list):
                     for item in child:
-                        if isinstance(item, AST.Node):
+                        if isinstance(item, Node):
                             self.visit(item)
-                elif isinstance(child, AST.Node):
+                elif isinstance(child, Node):
                     self.visit(child)
 
     # simpler version of generic_visit, not so general
@@ -71,6 +71,7 @@ class TypeChecker(NodeVisitor):
 
     def __init__(self):
         self.table = SymbolTable(None, "root")
+        self.function = None
 
     def visit_Program(self, node):
         self.visit(node.elements)
@@ -85,7 +86,7 @@ class TypeChecker(NodeVisitor):
         self.visit(node.inits)
 
     def visit_Init(self, node):
-        id_type = self.visit(node.ID)
+        id_type = self.table.get(node.ID)
         expr_type = self.visit(node.expr)
         if ttype['='][id_type][expr_type] is None:
             print 'Error: Assignment of {} to {}: line {}'.format(expr_type, id_type, node.line)
@@ -126,15 +127,30 @@ class TypeChecker(NodeVisitor):
         self.visit(node.instructions)
         self.visit(node.cond)
 
-    # todo1
     def visit_ReturnInstr(self, node):
-        pass
+        if self.function is None:
+            print "Error: return instruction outside a function: line {}".format(node.line)
+        else:
+            expr_type = self.visit(node.expr)
+            # self.function.type ??
+            if ttype['='][self.function.type][expr_type] is None:
+                print "Error: Improper returned type, expected {}, got {}: line {}".format(self.function.type, expr_type, node.line)
 
-    def visit_RelExpr(self, node):
-        type1 = self.visit(node.left)     # type1 = node.left.accept(self) 
-        type2 = self.visit(node.right)    # type2 = node.right.accept(self)
-        # ... 
-        #
+    def visit_ContinueInstr(self, node):
+        if self.function is None:
+            print "Error: continue instruction outside a loop: line {}".format(node.line)
+
+    def visit_BreakInstr(self, node):
+        if self.function is None:
+            print "Error: break instruction outside a loop: line {}".format(node.line)
+
+    def visit_CompoundInstr(self, node):
+        new_table = SymbolTable(self.table, "child")
+        self.table = new_table
+        if node.declarations is not None:
+            self.visit(node.declarations)
+        self.visit(node.instructions_opt)
+        self.table = self.table.getParentScope()
 
     def visit_Integer(self, node):
         return 'int'
@@ -145,6 +161,9 @@ class TypeChecker(NodeVisitor):
     def visit_String(self, node):
         return 'string'
 
+    def visit_Const(self, node):
+        self.visit(node.const)
+
     def visit_Variable(self, node):
         var_type = self.table.getAny(node.name)
         if var_type is None:
@@ -153,12 +172,19 @@ class TypeChecker(NodeVisitor):
             return type(var_type)
 
     def visit_IDPareExpr(self, node):
-        fun_option = self.table.getAny(node.name)
-        if not isinstance(fun_option, SymbolTable.FunctionSymbol):
-            print "Error: Call of undefined fun '{}': line {}".format(node.name, node.line)
+        fun_option = self.table.getAny(node.ID)
+        if not isinstance(fun_option, FunctionSymbol):
+            print "Error: Call of undefined fun '{}': line {}".format(node.ID, node.line)
         else:
-            # todo1
-            pass
+            if len(node.expr_list.list) != len(fun_option.parameters):
+                print "Error: Improper number of args in {} call: line {}".format(fun_option.name, node.line)
+            else:
+                args_types = [self.visit(arg_type) for arg_type in node.expr_list.list]
+                declared_types = fun_option.parameters
+                for declared, current in args_types, declared_types:
+                    if ttype['='][declared][current] is None:
+                        print "Error: Improper returned type, expected {}, got {} line {}".format(declared, current, node.line)
+            return fun_option.type
 
     def visit_PareExpr(self, node):
         return self.visit(node.expr)
@@ -168,17 +194,22 @@ class TypeChecker(NodeVisitor):
                                           # requires definition of accept method in class Node
         type1 = self.visit(node.left)     # type1 = node.left.accept(self)
         type2 = self.visit(node.right)    # type2 = node.right.accept(self)
-        op    = node.op
+        op = node.op
         if ttype[op][type1][type2] is None:
             # todo1
             print "Error: Illegal operation, {} {} {}: line {}".format(type1, op, type2, node.line)
         return ttype[op][type1][type2]
 
+    def visit_FunDef(self, node):
+        if self.table.get(node.ID) is not None:
+            print "Error: Redefinition of function '{}': line {}".format(node.ID, node.line)
+        else:
+            function = FunctionSymbol(node.type, node.ID)
+            self.table.put(node.ID, function)
+            if node.args_list is not None:
+                self.visit(node.args_list)
+            self.visit(node.compound_instr)
+            self.function = None
 
-
-
-
-
-
-
-
+    def visit_Arg(self, node):
+        pass

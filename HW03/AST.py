@@ -51,9 +51,10 @@ class Inits(Node):
 
 
 class Init(Node):
-    def __init__(self, ID, expr):
+    def __init__(self, ID, expr, line):
         self.ID = ID
         self.expr = expr
+        self.line = line
 
 
 class Instructions(Node):
@@ -65,8 +66,9 @@ class Instructions(Node):
 
 
 class PrintInstr(Node):
-    def __init__(self, expr_list):
+    def __init__(self, expr_list, line):
         self.expr_list = expr_list
+        self.line = line
 
 
 class LabeledInstr(Node):
@@ -76,9 +78,10 @@ class LabeledInstr(Node):
 
 
 class Assignment(Node):
-    def __init__(self, ID, expression):
+    def __init__(self, ID, expression, line):
         self.ID = ID
         self.expression = expression
+        self.line = line
 
 
 class ChoiceInstr(Node):
@@ -101,8 +104,9 @@ class RepeatInstr(Node):
 
 
 class ReturnInstr(Node):
-    def __init__(self, expr):
+    def __init__(self, expr, line):
         self.expr = expr
+        self.line = line
 
 
 class ContinueInstr(Node):
@@ -120,34 +124,37 @@ class CompoundInstr(Node):
 
 
 class Const(Node):
-    def __init__(self, const):
+    def __init__(self, const, line):
         self.const = const
+        self.line = line
 
 
 class Integer(Const):
-    pass
-    #...
+    def __init__(self, const, line):
+        Const.__init__(self, const, line)
 
 
 class Float(Const):
-    pass
-    #...
+    def __init__(self, const, line):
+        Const.__init__(self, const, line)
 
 
 class String(Const):
-    pass
-    #...
+    def __init__(self, const, line):
+        Const.__init__(self, const, line)
 
 
 class Variable(Node):
-    def __init__(self, line, name):
+    def __init__(self, name, line):
         self.name = name
+        self.line = line
 
 
 class IDPareExpr(Node):
-    def __init__(self, ID, expr_list):
+    def __init__(self, ID, expr_list, line):
         self.ID = ID
         self.expr_list = expr_list
+        self.line = line
 
 
 class PareExpr(Node):
@@ -156,10 +163,11 @@ class PareExpr(Node):
 
 
 class BinExpr(Node):
-    def __init__(self, op, left, right):
+    def __init__(self, op, left, right, line):
         self.op = op
         self.left = left
         self.right = right
+        self.line = line
 
 
 class ExprList(Node):
@@ -195,7 +203,8 @@ class ArgsList(Node):
 
 
 class Arg(Node):
-    def __init__(self, type, ID):
+    def __init__(self, type, ID, line):
         self.type = type
         self.ID = ID
+        self.line = line
 
