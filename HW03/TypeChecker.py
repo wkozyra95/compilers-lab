@@ -118,7 +118,7 @@ class TypeChecker(NodeVisitor):
         expr_type = self.visit(node.expression)
         if var_type is None:
             print "Error: Usage of undeclared variable '{}': line {}".format(node.ID, node.line)
-        elif ttype['='][var_type.type][expr_type] is None:
+        elif ttype['='][var_type.type][expr_type] is None and var_type.type is not None and expr_type is not None:
             print "Error: Illegal operation, {} = {}: line {}".format(var_type.type, expr_type, node.line)
 
     def visit_ChoiceInstr(self, node):
@@ -207,7 +207,7 @@ class TypeChecker(NodeVisitor):
         type1 = self.visit(node.left)     # type1 = node.left.accept(self)
         type2 = self.visit(node.right)    # type2 = node.right.accept(self)
         op = node.op
-        if ttype[op][type1][type2] is None:
+        if ttype[op][type1][type2] is None and type1 is not None and type2 is not None:
             print "Error: Illegal operation, {} {} {}: line {}".format(type1, op, type2, node.line)
         return ttype[op][type1][type2]
 
@@ -233,6 +233,6 @@ class TypeChecker(NodeVisitor):
 
     def visit_Arg(self, node):
         if self.table.get(node.ID) is not None:
-            print "Error"
+            print "Error: Variable '{}' already declared: line {}".format(node.ID, node.line)
         else:
             self.table.put(node.ID, VariableSymbol(node.ID, node.type))
