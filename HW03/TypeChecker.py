@@ -18,6 +18,7 @@ ttype['%']['int']['int'] = 'int'
 ttype['=']['int']['int'] = 'int'
 ttype['=']['float']['int'] = 'float'
 ttype['=']['int']['float'] = 'float'
+ttype['=']['string']['string'] = 'string'
 ttype['+']['string']['string'] = 'string'
 ttype['*']['string']['int'] = 'string'
 
@@ -52,6 +53,9 @@ class NodeVisitor(object):
             for elem in node:
                 self.visit(elem)
         else:
+            #
+            if node is None:
+                return
             for child in node.list:
                 if isinstance(child, list):
                     for item in child:
@@ -72,6 +76,8 @@ class TypeChecker(NodeVisitor):
     def __init__(self):
         self.table = SymbolTable(None, "root")
         self.function = None
+        self.type = None
+        self.loop = []
 
     def visit_Program(self, node):
         self.visit(node.elements)
@@ -82,22 +88,24 @@ class TypeChecker(NodeVisitor):
         self.visit(node.inst)
 
     def visit_Declaration(self, node):
-        self.type = type
+        self.type = node.type
         self.visit(node.inits)
+        self.type = None
 
     def visit_Init(self, node):
-        id_type = self.table.get(node.ID)
+        id_type = self.type
         expr_type = self.visit(node.expr)
+
         if ttype['='][id_type][expr_type] is None:
             print 'Error: Assignment of {} to {}: line {}'.format(expr_type, id_type, node.line)
         else:
             if id_type is 'int' and expr_type is 'float':
                 # write it better
                 print 'Warning: Assignment of {} to {}: line {}'.format(expr_type, id_type, node.line)
-            if self.table.get(node.name) is not None:
+            if self.table.get(node.ID) is not None:
                 print "Error: Variable '{}' already declared: line {}".format(node.ID, node.line)
             else:
-                self.table.put(node.ID, id_type)
+                self.table.put(node.ID, VariableSymbol(node.ID, id_type))
 
     def visit_PrintInstr(self, node):
         self.visit(node.expr_list)
@@ -110,8 +118,8 @@ class TypeChecker(NodeVisitor):
         expr_type = self.visit(node.expression)
         if var_type is None:
             print "Error: Usage of undeclared variable '{}': line {}".format(node.ID, node.line)
-        elif ttype['='][var_type][expr_type] is None:
-            print "Error: Illegal operation, {} = {}: line {}".format(var_type, expr_type, node.line)
+        elif ttype['='][var_type.type][expr_type] is None:
+            print "Error: Illegal operation, {} = {}: line {}".format(var_type.type, expr_type, node.line)
 
     def visit_ChoiceInstr(self, node):
         self.visit(node.cond)
@@ -121,10 +129,14 @@ class TypeChecker(NodeVisitor):
 
     def visit_WhileInstr(self, node):
         self.visit(node.cond)
+        self.loop.append(1)
         self.visit(node.instr)
+        self.loop.pop()
 
     def visit_RepeatInstr(self, node):
+        self.loop.append(1)
         self.visit(node.instructions)
+        self.loop.pop()
         self.visit(node.cond)
 
     def visit_ReturnInstr(self, node):
@@ -132,16 +144,15 @@ class TypeChecker(NodeVisitor):
             print "Error: return instruction outside a function: line {}".format(node.line)
         else:
             expr_type = self.visit(node.expr)
-            # self.function.type ??
-            if ttype['='][self.function.type][expr_type] is None:
+            if ttype['='][self.function.type][expr_type] is None and self.function.type is not None and expr_type is not None:
                 print "Error: Improper returned type, expected {}, got {}: line {}".format(self.function.type, expr_type, node.line)
 
     def visit_ContinueInstr(self, node):
-        if self.function is None:
-            print "Error: continue instruction outside a loop: line {}".format(node.line)
+        if len(self.loop) == 0:
+            print "Error: continue instruction utside a loop: line {}".format(node.line)
 
     def visit_BreakInstr(self, node):
-        if self.function is None:
+        if len(self.loop) == 0:
             print "Error: break instruction outside a loop: line {}".format(node.line)
 
     def visit_CompoundInstr(self, node):
@@ -162,14 +173,14 @@ class TypeChecker(NodeVisitor):
         return 'string'
 
     def visit_Const(self, node):
-        self.visit(node.const)
+        return self.visit(node.const)
 
     def visit_Variable(self, node):
         var_type = self.table.getAny(node.name)
         if var_type is None:
             print "Error: Usage of undeclared variable '{}': line {}".format(node.name, node.line)
         else:
-            return type(var_type)
+            return var_type.type
 
     def visit_IDPareExpr(self, node):
         fun_option = self.table.getAny(node.ID)
@@ -181,9 +192,10 @@ class TypeChecker(NodeVisitor):
             else:
                 args_types = [self.visit(arg_type) for arg_type in node.expr_list.list]
                 declared_types = fun_option.parameters
-                for declared, current in args_types, declared_types:
+                for (declared, current) in zip(args_types, declared_types):
                     if ttype['='][declared][current] is None:
-                        print "Error: Improper returned type, expected {}, got {} line {}".format(declared, current, node.line)
+                        print "Error: Improper type of args in {} call: line {}".format(fun_option.name, node.line)
+                        break
             return fun_option.type
 
     def visit_PareExpr(self, node):
@@ -196,7 +208,6 @@ class TypeChecker(NodeVisitor):
         type2 = self.visit(node.right)    # type2 = node.right.accept(self)
         op = node.op
         if ttype[op][type1][type2] is None:
-            # todo1
             print "Error: Illegal operation, {} {} {}: line {}".format(type1, op, type2, node.line)
         return ttype[op][type1][type2]
 
@@ -204,12 +215,24 @@ class TypeChecker(NodeVisitor):
         if self.table.get(node.ID) is not None:
             print "Error: Redefinition of function '{}': line {}".format(node.ID, node.line)
         else:
-            function = FunctionSymbol(node.type, node.ID)
+            new_table = SymbolTable(self.table, "child")
+            function = FunctionSymbol(node.ID, node.type, new_table)
+            self.function = function
             self.table.put(node.ID, function)
+            self.table = function.table
             if node.args_list is not None:
                 self.visit(node.args_list)
             self.visit(node.compound_instr)
+            self.table = self.table.getParentScope()
             self.function = None
 
+    def visit_ArgsList(self, node):
+        for arg in node.list:
+            self.visit(arg)
+        self.function.extract()
+
     def visit_Arg(self, node):
-        pass
+        if self.table.get(node.ID) is not None:
+            print "Error"
+        else:
+            self.table.put(node.ID, VariableSymbol(node.ID, node.type))

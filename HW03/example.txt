@@ -1,26 +1,15 @@
 
-float a = 0, b = 0, c = 0;
-float a = 2;
+int a = 0, b = 0, c = 0;
 
-int gcd(int m, int n) {
-
-int res = 0;
-if (m!=n) {
-
-    if (m > n)
-        res = gcd(m-n, n);
-    else
-        res = gcd(n-m, m);
-}
-else
-    res = m;
-print res;
-return res;
+int pow(int n, int m) {
+        int i=1;
+        int pow = 1;
+        while(i<=m) {
+            res = pow*n;
+            i = i+1;
+        }
+        return pow;
 }
 
-while(a >= b ) {
-
-    a = 1/2*(a+b/a);
-}
-
+print pow(2,10);
 

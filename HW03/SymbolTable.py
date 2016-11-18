@@ -8,21 +8,25 @@ class Symbol(object):
 class VariableSymbol(Symbol):
 
     def __init__(self, name, type):
-        self.type = type
         self.name = name
+        self.type = type
     #
 
 class FunctionSymbol(Symbol):
 
-    def __init__(self, name, type):
+    def __init__(self, name, type, table):
         self.type = type
         self.name = name
         self.parameters = []
+        self.table = table
+
+    def extract(self):
+        self.parameters = [x.type for x in self.table.table.values()]
 
 
 class SymbolTable(object):
 
-    def __init__(self, parent, name): # parent scope and symbol table name
+    def __init__(self, parent, name, ): # parent scope and symbol table name
         self.parent = parent
         self.name = name
         self.table = {}

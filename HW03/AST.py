@@ -110,11 +110,13 @@ class ReturnInstr(Node):
 
 
 class ContinueInstr(Node):
-    pass
+    def __init__(self, line):
+        self.line = line
 
 
 class BreakInstr(Node):
-    pass
+    def __init__(self, line):
+        self.line = line
 
 
 class CompoundInstr(Node):
@@ -187,11 +189,12 @@ class FunDefs(Node):
 
 
 class FunDef(Node):
-    def __init__(self, type, ID, args_list, compound_instr):
+    def __init__(self, type, ID, args_list, compound_instr, line):
         self.type = type
         self.ID = ID
         self.args_list = args_list
         self.compound_instr = compound_instr
+        self.line = line
 
 
 class ArgsList(Node):
