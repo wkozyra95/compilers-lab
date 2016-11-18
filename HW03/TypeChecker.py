@@ -100,9 +100,11 @@ class TypeChecker(NodeVisitor):
             print 'Error: Assignment of {} to {}: line {}'.format(expr_type, id_type, node.line)
         else:
             if id_type is 'int' and expr_type is 'float':
-                # write it better
                 print 'Warning: Assignment of {} to {}: line {}'.format(expr_type, id_type, node.line)
-            if self.table.get(node.ID) is not None:
+
+            if isinstance(self.table.getAny(node.ID), FunctionSymbol):
+                    print "Error: Function identifier '{}' used as a variable: line {}".format(node.ID, node.line)
+            elif self.table.get(node.ID) is not None:
                 print "Error: Variable '{}' already declared: line {}".format(node.ID, node.line)
             else:
                 self.table.put(node.ID, VariableSymbol(node.ID, id_type))
@@ -117,7 +119,9 @@ class TypeChecker(NodeVisitor):
         var_type = self.table.getAny(node.ID)
         expr_type = self.visit(node.expression)
         if var_type is None:
-            print "Error: Usage of undeclared variable '{}': line {}".format(node.ID, node.line)
+            print "Error: Variable '{}' undefined in current scope: line {}".format(node.ID, node.line)
+        elif isinstance(var_type, FunctionSymbol):
+            print "Error: Function identifier '{}' used as a variable: line {}".format(node.ID, node.line)
         elif ttype['='][var_type.type][expr_type] is None and var_type.type is not None and expr_type is not None:
             print "Error: Illegal operation, {} = {}: line {}".format(var_type.type, expr_type, node.line)
 
@@ -143,6 +147,7 @@ class TypeChecker(NodeVisitor):
         if self.function is None:
             print "Error: return instruction outside a function: line {}".format(node.line)
         else:
+            self.function.ret = 1
             expr_type = self.visit(node.expr)
             if ttype['='][self.function.type][expr_type] is None and self.function.type is not None and expr_type is not None:
                 print "Error: Improper returned type, expected {}, got {}: line {}".format(self.function.type, expr_type, node.line)
@@ -179,6 +184,8 @@ class TypeChecker(NodeVisitor):
         var_type = self.table.getAny(node.name)
         if var_type is None:
             print "Error: Usage of undeclared variable '{}': line {}".format(node.name, node.line)
+        elif isinstance(var_type, FunctionSymbol):
+            print "Error: Function identifier '{}' used as a variable: line {}".format(node.name, node.line)
         else:
             return var_type.type
 
@@ -212,7 +219,8 @@ class TypeChecker(NodeVisitor):
         return ttype[op][type1][type2]
 
     def visit_FunDef(self, node):
-        if self.table.get(node.ID) is not None:
+        fun_name = self.table.get(node.ID)
+        if fun_name is not None:
             print "Error: Redefinition of function '{}': line {}".format(node.ID, node.line)
         else:
             new_table = SymbolTable(self.table, "child")
@@ -224,6 +232,8 @@ class TypeChecker(NodeVisitor):
                 self.visit(node.args_list)
             self.visit(node.compound_instr)
             self.table = self.table.getParentScope()
+            if self.function.ret == 0:
+                print "Error: Missing return statement in function '{}' returning {}: line {}".format(self.function.name, self.function.type, node.line)
             self.function = None
 
     def visit_ArgsList(self, node):

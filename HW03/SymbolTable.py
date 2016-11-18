@@ -19,6 +19,7 @@ class FunctionSymbol(Symbol):
         self.name = name
         self.parameters = []
         self.table = table
+        self.ret = 0
 
     def extract(self):
         self.parameters = [x.type for x in self.table.table.values()]
