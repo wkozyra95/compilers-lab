@@ -3,3 +3,11 @@ example/
 *.pyc
 **/parsetab.py
 *.out
+.idea
+.idea/*
+.idea/.name
+.idea/compilers-lab-1.iml
+.idea/encodings.xml
+.idea/misc.xml
+.idea/modules.xml
+.idea/workspace.xml
