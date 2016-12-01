@@ -1,8 +1,6 @@
 
 import AST
-import math
 import operator
-import SymbolTable
 from Memory import *
 from Exceptions import  *
 from visit import *
@@ -15,7 +13,11 @@ class Interpreter(object):
 
     def __init__(self):
         self.mem_stack = MemoryStack()
-        self.ops = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.div}
+        self.ops = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.div,
+                    '%': operator.mod, '|': operator.or_, '&': operator.and_, '^': operator.xor,
+                    'AND': operator.iand, 'OR': operator.ior, 'SHL': operator.lshift, 'SHR': operator.rshift,
+                    'EQ': operator.eq, 'NEQ': operator.ne, '>': operator.gt, '<': operator.lt,
+                    'LE': operator.le, 'GE': operator.ge}
 
     @on('node')
     def visit(self, node):
@@ -199,8 +201,10 @@ class Interpreter(object):
         return node.name
 
     # todo ???
+    """
     @when(AST.RelOp)
     def visit(self, node):
         r1 = node.left.accept(self)
         r2 = node.right.accept(self)
         # ...
+    """
