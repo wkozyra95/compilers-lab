@@ -9,7 +9,7 @@ class Memory:
 
     # variable name
     def has_key(self, name):
-        # todo
+        # todo ???
         pass
 
     # gets from memory current value of variable <name>
