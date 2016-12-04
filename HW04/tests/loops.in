@@ -1,0 +1,20 @@
+int a = 0, b = 0, c = 0;
+
+
+while(a < 100 ) {
+    if(a==15)
+        break;  
+    print a;
+    a = a + 1;
+}
+
+a = 0;
+
+repeat {
+    a = a + 1;
+    if(a%5!=0)    
+        continue;
+    print a;
+} until (a>100);
+
+

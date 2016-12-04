@@ -1,0 +1,23 @@
+if(1==0)
+    print "problem";
+else if(1==1)
+    print "OK";
+else
+    print "another problem";
+
+if(1==0)
+    print "problem";
+else if(1==1)
+    print "OK";
+else
+    print "another problem";
+
+if(1==0)
+    print "problem";
+else if(1==0)
+    print "another problem";
+else if(1==1)
+    print "OK";
+else
+    print "yet another problem";
+
