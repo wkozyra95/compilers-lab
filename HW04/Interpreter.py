@@ -12,7 +12,9 @@ sys.setrecursionlimit(10000)
 class Interpreter(object):
 
     def __init__(self):
-        self.mem_stack = MemoryStack()
+        self.fun_stack = MemoryStack()
+        self.fun_stack.pop()
+        self.global_stack = MemoryStack()
         self.ops = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.div,
                     '%': operator.mod, '|': operator.or_, '&': operator.and_, '^': operator.xor,
                     'AND': operator.iand, 'OR': operator.ior, 'SHL': operator.lshift, 'SHR': operator.rshift,
@@ -58,7 +60,10 @@ class Interpreter(object):
     @when(AST.Init)
     def visit(self, node):
         expr = node.expr.accept(self)
-        self.mem_stack.insert(node.ID, expr)
+        if self.fun_stack.isEmpty():
+            self.global_stack.insert(node.ID, expr)
+        else: 
+            self.fun_stack.insert(node.ID, expr)
 
     @when(AST.Instructions)
     def visit(self, node):
@@ -78,7 +83,14 @@ class Interpreter(object):
     @when(AST.Assignment)
     def visit(self, node):
         expr = node.expression.accept(self)
-        self.mem_stack.set(node.ID, expr)
+        if self.fun_stack.isEmpty():
+            self.global_stack.set(node.ID, expr)
+        else:
+            v = self.fun_stack.getFromF(node.ID)
+            if v is None:
+                self.global_stack.set(node.ID, expr)
+            else:
+                self.fun_stack.set(node.ID, expr)
         return expr
 
     @when(AST.ChoiceInstr)
@@ -129,11 +141,20 @@ class Interpreter(object):
     @when(AST.CompoundInstr)
     def visit(self, node):
         fun_mem = Memory('compound')
-        self.mem_stack.push(fun_mem)
-        if node.declarations is not None:
-            node.declarations.accept(self)
-        node.instructions_opt.accept(self)
-        self.mem_stack.pop()
+        if self.fun_stack.isEmpty():
+            self.global_stack.push(fun_mem)
+        else: 
+            self.fun_stack.push(fun_mem)
+
+        try:
+            if node.declarations is not None:
+                node.declarations.accept(self)
+            node.instructions_opt.accept(self)
+        finally:
+            if self.fun_stack.isEmpty():
+                self.global_stack.pop()
+            else:
+                self.fun_stack.pop()
 
     @when(AST.Const)
     def visit(self, node):
@@ -153,23 +174,30 @@ class Interpreter(object):
 
     @when(AST.Variable)
     def visit(self, node):
-        return self.mem_stack.get(node.name)
+        if self.fun_stack.isEmpty():
+            return self.global_stack.get(node.name)
+        else:
+            v = self.fun_stack.getFromF(node.name)
+            if v is None:
+                return self.global_stack.get(node.name)
+            else:
+                return v
 
     @when(AST.IDPareExpr)
     def visit(self, node):
-        function = self.mem_stack.get(node.ID)
-        fun_mem = Memory(node.ID)
+        function = self.global_stack.get(node.ID)
+        fun_mem = Memory(node.ID, True)
         if node.expr_list is not None:
             for arg, expr in zip(function.args_list.list, node.expr_list.list):
                 fun_mem.put(arg.accept(self), expr.accept(self))
         
-        self.mem_stack.push(fun_mem)
+        self.fun_stack.push(fun_mem)
         try:
             function.compound_instr.accept(self)
         except ReturnValueException as e:
-            self.mem_stack.pop()
+            self.fun_stack.pop()
             return e.value
-        self.mem_stack.pop()
+        self.fun_stack.pop()
 
     @when(AST.PareExpr)
     def visit(self, node):
@@ -193,7 +221,7 @@ class Interpreter(object):
 
     @when(AST.FunDef)
     def visit(self, node):
-        self.mem_stack.insert(node.ID, node)
+        self.global_stack.insert(node.ID, node)
 
     @when(AST.ArgsList)
     def visit(self, node):

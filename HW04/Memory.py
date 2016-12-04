@@ -3,9 +3,10 @@
 class Memory:
 
     # memory name
-    def __init__(self, name):
+    def __init__(self, name, isFunction=False):
         self.name = name
         self.mem_dict = {}
+        self.isFunction = isFunction
 
     # variable name
     def has_key(self, name):
@@ -37,6 +38,18 @@ class MemoryStack:
         self.stack.reverse()
         return result
 
+    def getFromF(self, name):
+        self.stack.reverse()
+        result = None
+        for mem in self.stack:
+            result = mem.get(name)
+            if result is not None:
+                break
+            if mem.isFunction:
+                break
+
+        self.stack.reverse()
+        return result
     # inserts into memory stack variable <name> with value <value>
     def insert(self, name, value):
         self.stack[-1].put(name, value)
@@ -59,4 +72,5 @@ class MemoryStack:
     def pop(self):
         return self.stack.pop()
 
-
+    def isEmpty(self):
+        return len(self.stack) == 0

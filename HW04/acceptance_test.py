@@ -32,6 +32,5 @@ class AcceptanceTests(unittest.TestCase):
                 elif filename.endswith('.in'):
                     cls.add_test(dirpath,filename)
 
-if __name__ == '__main__':
-    AcceptanceTests.add_tests('tests/')
-    unittest.main()
+AcceptanceTests.add_tests('tests/')
+unittest.main()
