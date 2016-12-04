@@ -36,7 +36,7 @@ class Cparser(object):
             print("Syntax error at line {0}, column {1}: LexToken({2}, '{3}')".format(p.lineno, self.scanner.find_tok_column(p), p.type, p.value))
         else:
             print("Unexpected end of input")
-
+        exit()
 
     def p_program(self, p):
         """program : elements"""
@@ -200,7 +200,7 @@ class Cparser(object):
 
     def p_const_string(self, p):
         """const : STRING"""
-        p[0] = AST.String([1], p.lineno(1))
+        p[0] = AST.String(p[1], p.lineno(1))
 
 
     def p_const_expression(self, p):

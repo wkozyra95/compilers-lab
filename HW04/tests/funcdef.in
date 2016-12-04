@@ -1,0 +1,28 @@
+
+
+string greet(string name)
+{
+    string str = "Hey, " + name;
+    return str;
+}
+
+string greetMe()
+{
+    return greet("you");
+}
+
+
+int inc(int n)
+{
+    return n+1;
+}
+
+int inc5(int n) {
+    return inc(inc(inc(inc(inc(n)))));
+}
+
+print greet("you");  
+print greetMe();
+print inc(1);
+print inc5(10);
+

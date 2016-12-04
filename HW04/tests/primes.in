@@ -1,0 +1,45 @@
+int x = 0;
+
+
+int primes(int maxprime) {
+	int i = 3, j = 0;
+	
+	if(maxprime > 2) {
+		print 2;
+	}
+	
+	while(1) {
+		j = 2;
+		while(j < i) {
+			if(i % j == 0) {
+				# Break - composite number
+				break;
+			}
+			
+			j = j + 1;
+		}
+		
+		if(i == j) {
+			# We have prime!
+			print i;
+		}
+		
+		i = i + 1;
+		
+		# Check condition and act accordingly
+		if(i < maxprime) {
+			continue;
+		} else {
+			break;
+		}
+		
+		# This should never happen
+		print "Error!";
+	}
+return 0;
+}
+
+print "Primes up to 100...";
+primes(100);
+
+

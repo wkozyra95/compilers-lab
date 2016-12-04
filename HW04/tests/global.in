@@ -1,0 +1,12 @@
+
+int a = 0;
+
+int f() {
+  int x=0;
+  a = 10;
+  return a;
+}
+
+print a;
+print f();
+print a;

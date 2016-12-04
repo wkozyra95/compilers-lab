@@ -19,10 +19,14 @@ if __name__ == '__main__':
     text = file.read()
 
     ast = parser.parse(text, lexer=Cparser.scanner)
+    
+    typeChecker = TypeChecker()
+    ast.accept(typeChecker)
+
+    print "Type correct"
+
     ast.accept(inter.Interpreter())
 
     # new
-    typeChecker = TypeChecker()
-    typeChecker.visit(ast)
 
     print "End checking"

@@ -1,0 +1,12 @@
+Type correct
+insert d 0
+replace d 0 1 end
+1
+insert d 0
+replace d 0 2 end
+2
+replace d 2 3 end
+3
+3
+3
+End checking

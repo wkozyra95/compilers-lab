@@ -16,8 +16,8 @@ class Interpreter(object):
         self.ops = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.div,
                     '%': operator.mod, '|': operator.or_, '&': operator.and_, '^': operator.xor,
                     'AND': operator.iand, 'OR': operator.ior, 'SHL': operator.lshift, 'SHR': operator.rshift,
-                    'EQ': operator.eq, 'NEQ': operator.ne, '>': operator.gt, '<': operator.lt,
-                    'LE': operator.le, 'GE': operator.ge}
+                    '==': operator.eq, 'NEQ': operator.ne, '>': operator.gt, '<': operator.lt,
+                    '<=': operator.le, '>=': operator.ge}
 
     @on('node')
     def visit(self, node):
@@ -34,9 +34,12 @@ class Interpreter(object):
 
     @when(AST.Element)
     def visit(self, node):
-        node.dec.accept(self)
-        node.func.accept(self)
-        node.inst.accept(self)
+        if node.dec is not None:
+            node.dec.accept(self)
+        if node.func is not None:
+            node.func.accept(self)
+        if node.inst is not None:
+            node.inst.accept(self)
 
     @when(AST.Declarations)
     def visit(self, node):
@@ -64,7 +67,8 @@ class Interpreter(object):
 
     @when(AST.PrintInstr)
     def visit(self, node):
-        print node.expr_list.accept(self)
+        for expr in node.expr_list.list:
+            print expr.accept(self)
 
     @when(AST.LabeledInstr)
     def visit(self, node):
@@ -81,38 +85,33 @@ class Interpreter(object):
     def visit(self, node):
         if node.cond.accept(self):
             return node.instr_1.accept(self)
-        elif node.indst_2 is not None:
+        elif node.instr_2 is not None:
             return node.instr_2.accept(self)
 
     # simplistic while loop interpretation
     @when(AST.WhileInstr)
     def visit(self, node):
-        r = None
         while node.cond.accept(self):
             try:
-                r = node.instr.accept(self)
+               node.instr.accept(self)
             except BreakException:
                 break
             except ContinueException:
                 pass
-        return r
 
     @when(AST.RepeatInstr)
     def visit(self, node):
-        r = None
         while True:
             try:
-                r = node.instr.accept(self)
-                # todo ???
-                # if node.cond.accept(self):
-                #    break
+                node.instructions.accept(self)
+                if node.cond.accept(self):
+                    break
             except BreakException:
                 break
             except ContinueException:
                 pass
             if node.cond.accept(self):
                 break
-        return r
 
     @when(AST.ReturnInstr)
     def visit(self, node):
@@ -129,25 +128,25 @@ class Interpreter(object):
 
     @when(AST.CompoundInstr)
     def visit(self, node):
-        node.declarations.accept(self)
+        if node.declarations is not None:
+            node.declarations.accept(self)
         node.instructions_opt.accept(self)
 
     @when(AST.Const)
     def visit(self, node):
-        return node.value
-    """
+        return node.const.accept(self)
+
     @when(AST.Integer)
     def visit(self, node):
-        return node.value
+        return int(node.const)
 
     @when(AST.Float)
     def visit(self, node):
-        return node.value
+        return node.const
 
     @when(AST.String)
     def visit(self, node):
-        return node.value
-    """
+        return node.const
 
     @when(AST.Variable)
     def visit(self, node):
@@ -155,8 +154,8 @@ class Interpreter(object):
 
     @when(AST.IDPareExpr)
     def visit(self, node):
-        function = self.mem_stack.get(node.name)
-        fun_mem = Memory(node.name)
+        function = self.mem_stack.get(node.ID)
+        fun_mem = Memory(node.ID)
         for arg, expr in zip(function.args_list.list, node.expr_list.list):
             fun_mem.put(arg.accept(self), expr.accept(self))
         self.mem_stack.push(fun_mem)
@@ -198,7 +197,7 @@ class Interpreter(object):
 
     @when(AST.Arg)
     def visit(self, node):
-        return node.name
+        return node.ID
 
     # todo ???
     """

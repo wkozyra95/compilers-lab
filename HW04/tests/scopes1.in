@@ -1,0 +1,19 @@
+
+int d = 0;
+d = 1;
+print d;
+
+{
+  int d = 0;
+  d = 2;
+  print d;
+  {
+    int d = 0;
+    d = 3;
+    print d;
+  }
+  print d;
+}
+
+print d;
+

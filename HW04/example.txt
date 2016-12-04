@@ -1,7 +1,11 @@
 
 int x=0,y=0,z=0;
-string s="";
-int u=0,v=0,x=0;
+repeat {
+    while(x<10) {
+        x = x + 1;
+    }
+    print x * 2;
+    x = x + 1;
+} until(x>25);
 
-print x;
 
