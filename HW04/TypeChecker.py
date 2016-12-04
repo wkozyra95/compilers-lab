@@ -194,9 +194,9 @@ class TypeChecker(NodeVisitor):
         if not isinstance(fun_option, FunctionSymbol):
             print "Error: Call of undefined fun '{}': line {}".format(node.ID, node.line)
         else:
-            if len(node.expr_list.list) != len(fun_option.parameters):
+            if node.expr_list is not None and len(node.expr_list.list) != len(fun_option.parameters):
                 print "Error: Improper number of args in {} call: line {}".format(fun_option.name, node.line)
-            else:
+            elif node.expr_list is not None:
                 args_types = [self.visit(arg_type) for arg_type in node.expr_list.list]
                 declared_types = fun_option.parameters
                 for (declared, current) in zip(args_types, declared_types):

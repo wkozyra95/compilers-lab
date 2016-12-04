@@ -16,7 +16,7 @@ class Interpreter(object):
         self.ops = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.div,
                     '%': operator.mod, '|': operator.or_, '&': operator.and_, '^': operator.xor,
                     'AND': operator.iand, 'OR': operator.ior, 'SHL': operator.lshift, 'SHR': operator.rshift,
-                    '==': operator.eq, 'NEQ': operator.ne, '>': operator.gt, '<': operator.lt,
+                    '==': operator.eq, '!=': operator.ne, '>': operator.gt, '<': operator.lt,
                     '<=': operator.le, '>=': operator.ge}
 
     @on('node')
@@ -128,9 +128,12 @@ class Interpreter(object):
 
     @when(AST.CompoundInstr)
     def visit(self, node):
+        fun_mem = Memory('compound')
+        self.mem_stack.push(fun_mem)
         if node.declarations is not None:
             node.declarations.accept(self)
         node.instructions_opt.accept(self)
+        self.mem_stack.pop()
 
     @when(AST.Const)
     def visit(self, node):
@@ -156,12 +159,15 @@ class Interpreter(object):
     def visit(self, node):
         function = self.mem_stack.get(node.ID)
         fun_mem = Memory(node.ID)
-        for arg, expr in zip(function.args_list.list, node.expr_list.list):
-            fun_mem.put(arg.accept(self), expr.accept(self))
+        if node.expr_list is not None:
+            for arg, expr in zip(function.args_list.list, node.expr_list.list):
+                fun_mem.put(arg.accept(self), expr.accept(self))
+        
         self.mem_stack.push(fun_mem)
         try:
             function.compound_instr.accept(self)
         except ReturnValueException as e:
+            self.mem_stack.pop()
             return e.value
         self.mem_stack.pop()
 
@@ -187,7 +193,6 @@ class Interpreter(object):
 
     @when(AST.FunDef)
     def visit(self, node):
-        # todo ???
         self.mem_stack.insert(node.ID, node)
 
     @when(AST.ArgsList)

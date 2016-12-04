@@ -23,10 +23,8 @@ if __name__ == '__main__':
     typeChecker = TypeChecker()
     ast.accept(typeChecker)
 
-    print "Type correct"
 
     ast.accept(inter.Interpreter())
 
     # new
 
-    print "End checking"
