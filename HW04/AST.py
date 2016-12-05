@@ -143,7 +143,7 @@ class Float(Const):
 
 class String(Const):
     def __init__(self, const, line):
-        Const.__init__(self, const, line)
+        Const.__init__(self, const[1:-1], line)
 
 
 class Variable(Node):
