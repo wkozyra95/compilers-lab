@@ -11,3 +11,5 @@ example/
 .idea/misc.xml
 .idea/modules.xml
 .idea/workspace.xml
+
+*.swp
