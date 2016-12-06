@@ -17,7 +17,7 @@ class Interpreter(object):
         self.global_stack = MemoryStack()
         self.ops = {'+': operator.add, '-': operator.sub, '*': operator.mul, '/': operator.div,
                     '%': operator.mod, '|': operator.or_, '&': operator.and_, '^': operator.xor,
-                    'AND': operator.iand, 'OR': operator.ior, 'SHL': operator.lshift, 'SHR': operator.rshift,
+                    '&&': operator.iand, '||': operator.ior, '<<': operator.lshift, '>>': operator.rshift,
                     '==': operator.eq, '!=': operator.ne, '>': operator.gt, '<': operator.lt,
                     '<=': operator.le, '>=': operator.ge}
 
