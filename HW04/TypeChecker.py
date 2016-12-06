@@ -78,6 +78,7 @@ class TypeChecker(NodeVisitor):
         self.function = None
         self.type = None
         self.loop = []
+        self.haveErrors = 0
 
     def visit_Program(self, node):
         self.visit(node.elements)
@@ -98,14 +99,17 @@ class TypeChecker(NodeVisitor):
 
         if ttype['='][id_type][expr_type] is None:
             print 'Error: Assignment of {} to {}: line {}'.format(expr_type, id_type, node.line)
+            self.haveErrors = 1
         else:
             if id_type is 'int' and expr_type is 'float':
-                print 'Warning: Assignment of {} to {}: line {}'.format(expr_type, id_type, node.line)
+                print 'Warning Assignment of {} to {}: line {}'.format(expr_type, id_type, node.line)
 
             if isinstance(self.table.getAny(node.ID), FunctionSymbol):
                     print "Error: Function identifier '{}' used as a variable: line {}".format(node.ID, node.line)
+                    self.haveErrors = 1
             elif self.table.get(node.ID) is not None:
                 print "Error: Variable '{}' already declared: line {}".format(node.ID, node.line)
+                self.haveErrors = 1
             else:
                 self.table.put(node.ID, VariableSymbol(node.ID, id_type))
 
@@ -120,10 +124,13 @@ class TypeChecker(NodeVisitor):
         expr_type = self.visit(node.expression)
         if var_type is None:
             print "Error: Variable '{}' undefined in current scope: line {}".format(node.ID, node.line)
+            self.haveErrors = 1
         elif isinstance(var_type, FunctionSymbol):
             print "Error: Function identifier '{}' used as a variable: line {}".format(node.ID, node.line)
+            self.haveErrors = 1
         elif ttype['='][var_type.type][expr_type] is None and var_type.type is not None and expr_type is not None:
             print "Error: Illegal operation, {} = {}: line {}".format(var_type.type, expr_type, node.line)
+            self.haveErrors = 1
 
     def visit_ChoiceInstr(self, node):
         self.visit(node.cond)
@@ -146,11 +153,13 @@ class TypeChecker(NodeVisitor):
     def visit_ReturnInstr(self, node):
         if self.function is None:
             print "Error: return instruction outside a function: line {}".format(node.line)
+            self.haveErrors = 1
         else:
             self.function.ret = 1
             expr_type = self.visit(node.expr)
             if ttype['='][self.function.type][expr_type] is None and self.function.type is not None and expr_type is not None:
                 print "Error: Improper returned type, expected {}, got {}: line {}".format(self.function.type, expr_type, node.line)
+                self.haveErrors = 1
 
     def visit_ContinueInstr(self, node):
         if len(self.loop) == 0:
