@@ -23,8 +23,8 @@ if __name__ == '__main__':
     typeChecker = TypeChecker()
     ast.accept(typeChecker)
 
-
-    ast.accept(inter.Interpreter())
+    if typeChecker.haveErrors == 0:
+        ast.accept(inter.Interpreter())
 
     # new
 
