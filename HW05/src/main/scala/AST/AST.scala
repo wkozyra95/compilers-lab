@@ -190,5 +190,10 @@ case class Tuple(list: List[Node]) extends Node {
                          else list.map(_.toStr).mkString("(", ",", ")")
 }
 
+// todo
+case object EmptyNode extends Node{
+    override val toStr = "EmptyNode()"
+}
+
 
         

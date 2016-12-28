@@ -20,7 +20,9 @@ object Main {
           try {
               println("Parsing file: " + arg)     
               val reader = new FileReader(arg)
+
               val parseResult = parser.parseAll(reader)
+
               parseResult match {
                  case parser.Success(result: List[AST.Node], in) => {
                      println("\nAST:")
@@ -34,6 +36,7 @@ object Main {
                  }
                  case parser.NoSuccess(msg: String, in) => println("FAILURE " + parseResult)
               }
+
           }
           catch {
               case ex: FileNotFoundException => println("Couldn't open file " + arg)
