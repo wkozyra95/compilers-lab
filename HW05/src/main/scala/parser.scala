@@ -26,6 +26,7 @@ class Parser extends JavaTokenParsers {
   val reserved: Parser[String] = "and\\b".r |
                                  "class\\b".r |
                                  "def\\b".r |
+                                 "elif\\b".r |
                                  "else\\b".r |
                                  "False\\b".r |
                                  "if\\b".r |
@@ -107,8 +108,12 @@ class Parser extends JavaTokenParsers {
 
 
   def binary(level: Int): Parser[Node] = (
-      if (level>maxPrec) unary
-      else chainl1( binary(level+1), binaryOp(level) ) // equivalent to binary(level+1) * binaryOp(level)
+      if (level>maxPrec) power
+      else chainl1(binary(level+1), binaryOp(level)) // equivalent to binary(level+1) * binaryOp(level)
+  )
+
+  def power: Parser[Node] = (
+    rep1sep(unary,"**") ^^ {  list => list.reduceRight((left ,right) => BinExpr("**", left, right))  }
   )
 
   // operator precedence parsing takes place here
@@ -135,6 +140,10 @@ class Parser extends JavaTokenParsers {
           case NodeList(x) => ElemList(x)
           case l => { println("Warn: expr_list_comma didn't return NodeList"); l }
          }
+      | "("~>expr_list_comma<~")" ^^ {
+          case NodeList(x) => Tuple(x)
+          case l => { println("Warn: expr_list_comma didn't return NodeList"); l }
+        }
       | "{"~>key_datum_list<~"}"
   )
 
@@ -224,12 +233,41 @@ class Parser extends JavaTokenParsers {
       case target ~ expression => Assignment(target, expression)
   }
 
+/*
   def if_else_stmt: Parser[Node] = (
         "if" ~> expression ~ (":" ~> suite) ~ ("else"~":" ~> suite).? ^^ {
             case expression ~ suite1 ~ Some(suite2) => IfElseInstr(expression, suite1, suite2)
             case expression ~ suite ~ None => IfInstr(expression, suite)
         }
   )
+*/
+
+
+
+  def if_else_stmt: Parser[Node] = (
+        "if" ~> expression ~ (":" ~> suite) ~ ("elif" ~> expression~(":" ~> suite)).* ~ ("else"~":" ~> suite).? ^^ {
+          case expression ~ suite1 ~ Nil ~ Some(suite2) => IfElseInstr(expression, suite1, suite2)
+          case expression ~ suite ~ Nil ~ None => IfInstr(expression, suite)
+          case expression ~ suite1 ~ elifList ~ else1 =>
+              val elif = elifList.map{case express ~ suit => (express, suit)}
+
+            def fun(elifs: List[(Node,Node)], else2:Option[Node]): Node={
+              elifs match{
+                case Nil => else2.getOrElse(EmptyNode)
+                case (headCond,headInstr) :: tail =>
+                  val elseInstr = fun(tail, else2)
+                  if (elseInstr == EmptyNode)
+                    NodeList(List(IfInstr(headCond,headInstr)))
+                  else
+                    NodeList(List(IfElseInstr(headCond,headInstr,elseInstr)))
+              }
+            }
+
+
+            IfElseInstr(expression, suite1, fun(elif, else1))
+        }
+  )
+
 
   def while_stmt: Parser[WhileInstr] = "while" ~> expression ~ (":"~>suite) ^^ {
       case expression ~ suite => WhileInstr(expression, suite)
@@ -237,5 +275,5 @@ class Parser extends JavaTokenParsers {
 
   def input_instr: Parser[InputInstr] = "input"~"("~")" ^^^ InputInstr()
 
-}
+  }
 
