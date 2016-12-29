@@ -1,9 +1,9 @@
 example/
-
+**/target
 *.pyc
 **/parsetab.py
 *.out
-.idea
+**/.idea/*
 .idea/*
 .idea/.name
 .idea/compilers-lab-1.iml
