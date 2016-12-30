@@ -42,7 +42,7 @@ class Parser extends JavaTokenParsers {
 
   val floatLiteral: Parser[Double] = """\d+(\.\d*)|\.\d+""".r ^^ { _.toDouble }
   
-  val intLiteral: Parser[Integer] = """\d+""".r ^^ { _.toInt }
+  val intLiteral: Parser[Int] = """\d+""".r ^^ { _.toInt }
 
   def const: Parser[Node] = (
         floatLiteral ^^ FloatNum
