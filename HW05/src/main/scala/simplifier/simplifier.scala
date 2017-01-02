@@ -184,42 +184,56 @@ object Simplifier {
 
   }
 
-  val constantsEvaluator: PartialFunction[BinExpr, Node] ={
-    case BinExpr(op, leftNum:FloatNum, rightNum:FloatNum)=>
+  val constantsEvaluator: PartialFunction[BinExpr, Node] = {
+    case BinExpr(op, leftNum:FloatNum, rightNum:FloatNum) =>
       FloatNum(executeDoubleBinExpr(op, leftNum.value, rightNum.value))
-    case BinExpr(op, leftNum:IntNum, rightNum:FloatNum)=>
+    case BinExpr(op, leftNum:IntNum, rightNum:FloatNum) =>
       FloatNum(executeDoubleBinExpr(op, leftNum.value.toDouble, rightNum.value))
-    case BinExpr(op, leftNum:FloatNum, rightNum:IntNum)=>
+    case BinExpr(op, leftNum:FloatNum, rightNum:IntNum) =>
       FloatNum(executeDoubleBinExpr(op, leftNum.value, rightNum.value.toDouble))
-    case BinExpr(op, leftNum:IntNum, rightNum:IntNum)=>
+    case BinExpr(op, leftNum:IntNum, rightNum:IntNum) =>
       IntNum(executeIntBinExpr(op, leftNum.value, rightNum.value))
   }
 
   val divisionAndCommutativitySimplifier: PartialFunction[BinExpr, Node]={
-    case BinExpr("/", a, BinExpr("/", b, c)) if isOne(a) && isOne(b) => c
-    case BinExpr("/", BinExpr("/", b, c), a) if isOne(a) && isOne(b) => c
-
-    case BinExpr("*", a, BinExpr("/", b, c)) if isOne(b) && isOne(b) => BinExpr("/", a, c)
-    case BinExpr("*", BinExpr("/", b, c), a) if isOne(b) && isOne(b) => BinExpr("/", a, c)
-
-    case BinExpr("+", a, BinExpr("-", b, c)) if a.customEquals(c) => b
-    case BinExpr("+", BinExpr("-", b, c), a) if a.customEquals(c) => b
-
-    case BinExpr("-", a, BinExpr("+", b, c)) if a.customEquals(b) => Unary("-", c)
-    case BinExpr("-", a, BinExpr("+", b, c)) if a.customEquals(c) => Unary("-", b)
-
-    case BinExpr("-", BinExpr("+", b, c), a) if a.customEquals(b) => c
-    case BinExpr("-", BinExpr("+", b, c), a) if a.customEquals(c) => b
+    // 1/(1/c) = c
+    case BinExpr("/", a, BinExpr("/", b, c))
+      if isOne(a) && isOne(b) => c
+    // a*(1/c) = a/c
+    case BinExpr("*", a, BinExpr("/", b, c))
+      if isOne(b) => BinExpr("/", a, c)
+    // (1/c)*a = a/c
+    case BinExpr("*", BinExpr("/", b, c), a)
+      if isOne(b) => BinExpr("/", a, c)
+    // a+b-a = b
+    case BinExpr("+", a, BinExpr("-", b, c))
+      if a.customEquals(c) => b
+    // b-a+a = b
+    case BinExpr("+", BinExpr("-", b, c), a)
+      if a.customEquals(c) => b
+    // a-(a+c) = -c
+    case BinExpr("-", a, BinExpr("+", b, c))
+      if a.customEquals(b) => Unary("-", c)
+    // a-(b+a) = -b
+    case BinExpr("-", a, BinExpr("+", b, c))
+      if a.customEquals(c) => Unary("-", b)
+    // a+c-a = c
+    case BinExpr("-", BinExpr("+", b, c), a)
+      if a.customEquals(b) => c
+    // b+a-a = b
+    case BinExpr("-", BinExpr("+", b, c), a)
+      if a.customEquals(c) => b
   }
 
 
   val BinExprMinusesSimplifier: PartialFunction[BinExpr, Node] ={
+    // -a+(-b) = -(a+b)
     case BinExpr("+", Unary("-", leftNode), Unary("-", rightNode))  =>
       Unary("-", BinExpr("+", leftNode, rightNode))
-
+    // -a+b = b-a
     case BinExpr("+", Unary("-", leftNode), rightNode)  =>
       binExprSimplifier(BinExpr("-", rightNode, leftNode))
-
+    // a+(-b) = a-b
     case BinExpr("+", leftNode, Unary("-", rightNode))  =>
       binExprSimplifier(BinExpr("-", leftNode, rightNode))
   }
