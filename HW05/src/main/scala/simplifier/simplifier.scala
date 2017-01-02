@@ -114,68 +114,73 @@ object Simplifier {
   }
 
   val powerSimplifier: PartialFunction[BinExpr, Node] ={
+    // a^b * a^d = a^(b+d)
     case BinExpr("*", BinExpr("**", a, b), BinExpr("**", c, d)) if a.customEquals(c)=>
       binExprSimplifier(BinExpr("**", a, BinExpr("+", b, d)))
-    case BinExpr("**", a, IntNum(0)) =>
-      IntNum(1)
-    case BinExpr("**", a, IntNum(1)) =>
-      a
-    case BinExpr("**", BinExpr("**", a, b), c) =>
-      BinExpr("**", a, BinExpr("*", b, c))
+    // a^0 = 1
+    case BinExpr("**", a, IntNum(0)) => IntNum(1)
+    // a^1 = a
+    case BinExpr("**", a, IntNum(1)) => a
+    // a^b^c = a^(b*c)
+    case BinExpr("**", BinExpr("**", a, b), c) => BinExpr("**", a, BinExpr("*", b, c))
+    // a^2 + 2ac + c^2 = (a+c)^2
     case BinExpr("+",
-    BinExpr("+",
-    BinExpr("**", a, IntNum(2)),
-    BinExpr("*", BinExpr("*", IntNum(2), b), c)
-    ),
-    BinExpr("**", d, IntNum(2))
-    ) if a.customEquals(b) && c.customEquals(d) =>
-      BinExpr("**", BinExpr("+", a, c), IntNum(2))
+          BinExpr("+",
+            BinExpr("**", a, IntNum(2)),
+            BinExpr("*", BinExpr("*", IntNum(2), b), c)
+            ),
+            BinExpr("**", d, IntNum(2))
+            )
+      if a.customEquals(b) && c.customEquals(d) => BinExpr("**", BinExpr("+", a, c), IntNum(2))
+    // (a+b)^2 - a^2 -2ba = b^2
     case BinExpr("-",
-    BinExpr("-",
-    BinExpr("**", BinExpr("+", a, b), IntNum(2)),
-    BinExpr("**", c, IntNum(2))
-    ),
-    BinExpr("*", BinExpr("*", IntNum(2), d), e)
-    ) if a.customEquals(c) && c.customEquals(d) && b.customEquals(e)=>
-      BinExpr("**", b, IntNum(2))
+          BinExpr("-",
+            BinExpr("**", BinExpr("+", a, b), IntNum(2)),
+            BinExpr("**", c, IntNum(2))
+            ),
+          BinExpr("*", BinExpr("*", IntNum(2), d), e)
+          )
+      if a.customEquals(c) && c.customEquals(d) && b.customEquals(e)=> BinExpr("**", b, IntNum(2))
+    // (a+b)^2 - (c-a)^2 = 4ab
     case BinExpr("-",
-    BinExpr("**", BinExpr("+", a, b), IntNum(2)),
-    BinExpr("**", BinExpr("-", c, d), IntNum(2))
-    ) if a.customEquals(c) && b.customEquals(d) =>
-      BinExpr("*", BinExpr("*", IntNum(4), a), b)
+          BinExpr("**", BinExpr("+", a, b), IntNum(2)),
+          BinExpr("**", BinExpr("-", c, d), IntNum(2))
+          )
+      if a.customEquals(c) && b.customEquals(d) => BinExpr("*", BinExpr("*", IntNum(4), a), b)
   }
 
   val multiplicationSimplifier: PartialFunction[BinExpr, Node] ={
-    case BinExpr("-", BinExpr("*", a, b), c) if a.customEquals(c)=>
-      binExprSimplifier(BinExpr("*", a, BinExpr("-", b, IntNum(1))))
-
-    case BinExpr("-", c, BinExpr("*", a, b)) if a.customEquals(c)=>
-      binExprSimplifier(BinExpr("*", a, BinExpr("-", IntNum(1), b)))
-
-    case BinExpr("-", BinExpr("*", b, a), c) if a.customEquals(c)=>
-      binExprSimplifier(BinExpr("*", a, BinExpr("-", b, IntNum(1))))
-
-    case BinExpr("-", c, BinExpr("*", b, a)) if a.customEquals(c)=>
-      binExprSimplifier(BinExpr("*", a, BinExpr("-", IntNum(1), b)))
-
-    case BinExpr("+", BinExpr("*", a, b), BinExpr("*", c, d)) if a.customEquals(c)=>
-      binExprSimplifier(BinExpr("*", a, BinExpr("+", b, d)))
-    case BinExpr("+", BinExpr("*", a, b), BinExpr("*", c, d)) if a.customEquals(d)=>
-      binExprSimplifier(BinExpr("*", a, BinExpr("+", b, c)))
-    case BinExpr("+", BinExpr("*", a, b), BinExpr("*", c, d)) if b.customEquals(c)=>
-      binExprSimplifier(BinExpr("*", BinExpr("+", a, d), b))
-
-    case BinExpr("+", BinExpr("*", a, b), BinExpr("*", c, d)) if b.customEquals(d)=>
-      binExprSimplifier(BinExpr("*", BinExpr("+", a, c), b))
-
-    case BinExpr
-      (
-      "+",
-      BinExpr("+",  BinExpr("*", a, BinExpr("+", b, c)),  BinExpr("*", d, e)),
-      BinExpr("*", f, g)
-      )
+    // ab - a = a*(b-1)
+    case BinExpr("-", BinExpr("*", a, b), c)
+      if a.customEquals(c) =>  binExprSimplifier(BinExpr("*", a, BinExpr("-", b, IntNum(1))))
+    // a - ab = a*(1-b)
+    case BinExpr("-", c, BinExpr("*", a, b))
+      if a.customEquals(c) => binExprSimplifier(BinExpr("*", a, BinExpr("-", IntNum(1), b)))
+    // ba - a = a*(b-1)
+    case BinExpr("-", BinExpr("*", b, a), c)
+      if a.customEquals(c) =>  binExprSimplifier(BinExpr("*", a, BinExpr("-", b, IntNum(1))))
+    // a - ba = a*(1-b)
+    case BinExpr("-", c, BinExpr("*", b, a))
+      if a.customEquals(c) => binExprSimplifier(BinExpr("*", a, BinExpr("-", IntNum(1), b)))
+    // ab + ad = a*(b+d)
+    case BinExpr("+", BinExpr("*", a, b), BinExpr("*", c, d))
+      if a.customEquals(c) =>  binExprSimplifier(BinExpr("*", a, BinExpr("+", b, d)))
+    // ab + ca = a*(b+c)
+    case BinExpr("+", BinExpr("*", a, b), BinExpr("*", c, d))
+      if a.customEquals(d) => binExprSimplifier(BinExpr("*", a, BinExpr("+", b, c)))
+    // ab + bd = (a+d)*b
+    case BinExpr("+", BinExpr("*", a, b), BinExpr("*", c, d))
+      if b.customEquals(c) => binExprSimplifier(BinExpr("*", BinExpr("+", a, d), b))
+    // ab + cb = (a+c)*b
+    case BinExpr("+", BinExpr("*", a, b), BinExpr("*", c, d))
+      if b.customEquals(d) => binExprSimplifier(BinExpr("*", BinExpr("+", a, c), b))
+    // a*(b+c) + db + dc = (a+d)*(b+c)
+    case BinExpr("+",
+          BinExpr("+",  BinExpr("*", a, BinExpr("+", b, c)),  BinExpr("*", d, e)),
+          BinExpr("*", f, g)
+          )
       if b.customEquals(e) && c.customEquals(g) && d.customEquals(f) =>
-      BinExpr("*",  BinExpr("+",  a,  d),  BinExpr("+",  b,  c))
+        BinExpr("*",  BinExpr("+",  a,  d),  BinExpr("+",  b,  c))
 
   }
 
