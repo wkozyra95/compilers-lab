@@ -57,6 +57,10 @@ case class Unary(op: String, expr: Node) extends Node {
 
 }
 
+object BinExpr{
+  val commutativeOperands = List("+","*","and","or")
+}
+
 case class BinExpr(op: String, left: Node, right: Node) extends Node {
 
   override def toStr = {
@@ -73,6 +77,20 @@ case class BinExpr(op: String, left: Node, right: Node) extends Node {
       case _ =>
     }
     leftStr + " " + op + " " + rightStr
+  }
+
+  override def customEquals(node: Node)={
+
+    if(BinExpr.commutativeOperands.contains(this.op)){
+      node match {
+        case BinExpr(this.op,otherLeft,otherRight) =>
+          this.left.customEquals(otherLeft) && this.right.customEquals(otherRight) ||
+            this.left.customEquals(otherRight) && this.right.customEquals(otherLeft)
+        case _ => super.customEquals(node)
+      }
+    }else{
+      super.customEquals(node)
+    }
   }
 }
 
@@ -187,8 +205,8 @@ case class ElemList(list: List[Node]) extends Node {
 
 case class Tuple(list: List[Node]) extends Node {
   override def toStr = if(list.length==0) "()"
-  else if(list.length==1) "(" + list(0).toStr + ",)"
-  else list.map(_.toStr).mkString("(", ",", ")")
+    else if(list.length==1) "(" + list(0).toStr + ",)"
+    else list.map(_.toStr).mkString("(", ",", ")")
 }
 
 // todo
