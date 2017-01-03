@@ -26,7 +26,7 @@ object Main {
               parseResult match {
                  case parser.Success(result: List[AST.Node], in) => {
                      println("\nAST:")
-                     println(parseResult)
+                     println(parseResult.get)
                      val tree = AST.NodeList(result)
                      val simplifiedTree = simplifier.Simplifier.simplify(tree)
                      println("\nAST after optimization:")
