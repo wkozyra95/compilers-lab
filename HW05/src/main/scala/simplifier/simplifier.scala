@@ -133,6 +133,23 @@ object Simplifier {
       .map(func => func(expr2))
       .getOrElse(expr2)
   }
+  def sameArguments
+  (op:String)
+  (result:Node=>Node)
+  : PartialFunction[BinExpr, Node] = {
+    case BinExpr(`op`, left, right) if left.customEquals(right) =>
+      result(left)
+  }
+
+  def oneSpecialArgument
+  (op:String)
+  (condition:Node=>Boolean, result:Node=>Node):
+  PartialFunction[BinExpr, Node] = {
+    case BinExpr(`op`, left, right) if condition(left) =>
+      result(right)
+    case BinExpr(`op`, left, right) if condition(right) =>
+      result(left)
+  }
 
   val powerSimplifier: PartialFunction[BinExpr, Node] = {
     // a^b * a^d = a^(b+d)
@@ -246,7 +263,6 @@ object Simplifier {
       if a.customEquals(c) => b
   }
 
-
   val binExprMinusesSimplifier: PartialFunction[BinExpr, Node] = {
     // -a+(-b) = -(a+b)
     case BinExpr("+", Unary("-", leftNode), Unary("-", rightNode))  =>
@@ -261,22 +277,12 @@ object Simplifier {
 
   val concatenationSimplifier: PartialFunction[BinExpr, Node] = {
     case BinExpr("+", ElemList(list1), ElemList(list2))  =>
-      ElemList(list1++list2)
+      ElemList(list1 ++ list2)
     case BinExpr("+", Tuple(list1), Tuple(list2))  =>
-      Tuple(list1++list2)
+      Tuple(list1 ++ list2)
   }
 
-  def sameArguments(op:String)(result:Node=>Node): PartialFunction[BinExpr, Node] = {
-    case BinExpr(`op`, left, right) if left.customEquals(right) =>
-      result(left)
-  }
 
-  def oneSpecialArgument(op:String)(condition:Node=>Boolean, result:Node=>Node): PartialFunction[BinExpr, Node] = {
-    case BinExpr(`op`, left, right) if condition(left) =>
-      result(right)
-    case BinExpr(`op`, left, right) if condition(right) =>
-      result(left)
-  }
 
   def zeroEquality(node:Node)= {
     node match {
