@@ -44,7 +44,7 @@ object Simplifier {
         simplify(left)
       case IfElseInstr(cond, _, right) if simplify(cond) == FalseConst() =>
         simplify(right)
-      case e @ IfElseExpr(cond, left, _) if simplify(cond) == TrueConst()  =>
+      case IfElseExpr(cond, left, _) if simplify(cond) == TrueConst()  =>
         simplify(left)
       case IfElseExpr(cond, _, right) if simplify(cond) == FalseConst() =>
         simplify(right)
@@ -53,8 +53,8 @@ object Simplifier {
     }
   }
 
-  def unarySimplifier(unary:Unary)={
-    val comparisonPairs = Map(
+  def unarySimplifier(unary:Unary)= {
+    val reverseCompareOperator = Map(
       "==" -> "!=",
       "!=" -> "==",
       "<=" -> ">",
@@ -64,56 +64,77 @@ object Simplifier {
     )
 
     (unary.op, simplify(unary.expr)) match {
-      case ("not", BinExpr(op, left, right)) if comparisonPairs.contains(op) =>
-        BinExpr(comparisonPairs(op), left, right)
+        // not ( x > y) -> x <= y
+      case ("not", BinExpr(op, left, right)) if reverseCompareOperator.contains(op) =>
+        BinExpr(reverseCompareOperator(op), left, right)
       case ("-", Unary("-", node)) => node
+        // - - x -> x
       case ("not", Unary("not", node)) => node
+        // not not x -> x
       case ("not", TrueConst()) => FalseConst()
+        // not false -> true
       case ("not", FalseConst()) => TrueConst()
       case (op, node) => Unary(op, node)
     }
   }
 
 
-  def binExprSimplifier(expr:BinExpr):Node={
-    def always[A, B](x:B):A=>B = _ => x
+  def binExprSimplifier(expr:BinExpr):Node= {
 
-    val simplifiers = List(
-      conditionForOne("+")(condition = isZero, result = identity),
-      conditionForOne("+")(condition = _ == ElemList(List()), result = identity),
-      conditionForOne("*")(condition = isZero, result = always(IntNum(0))),
-      conditionForOne("*")(condition = isOne, result = identity),
-      ifSameArguments("-")(result =  always(IntNum(0))),
-      ifSameArguments("/")(result =  always(IntNum(1))),
-      ifSameArguments("or")(result = identity),
-      ifSameArguments("==")(result = always(TrueConst())),
-      ifSameArguments("<=")(result = always(TrueConst())),
-      ifSameArguments(">=")(result = always(TrueConst())),
-      ifSameArguments("!=")(result = always(FalseConst())),
-      ifSameArguments("<")(result = always(FalseConst())),
-      ifSameArguments(">")(result = always(FalseConst())),
-      ifSameArguments("and")(result = identity),
-      conditionForOne("and")(condition = _ == TrueConst(), result =  identity),
-      conditionForOne("and")(condition = _ == FalseConst(), result = always(FalseConst())),
-      conditionForOne("or")(condition = _ == TrueConst(), result = always(TrueConst())),
-      conditionForOne("or")(condition = _ == FalseConst(), result = identity),
+    val rootBinarySimplifier = List(
       constantsEvaluator,
-      BinExprMinusesSimplifier,
+      binExprMinusesSimplifier,
       multiplicationSimplifier,
       divisionAndCommutativitySimplifier,
       concatenationSimplifier,
-      powerSimplifier
+      powerSimplifier,
+
+      // x + 0 -> x
+      oneSpecialArgument("+")(zeroEquality, result = identity),
+      // x + [] -> x
+      oneSpecialArgument("+")(_ == ElemList(List()), result = identity),
+      // x * 0 -> 0
+      oneSpecialArgument("*")(zeroEquality, result = _ => IntNum(0)),
+      // x * 1 -> x
+      oneSpecialArgument("*")(oneEquality, result = identity),
+
+      // x - x -> 0
+      sameArguments("-")(_ => IntNum(0)),
+      // x / x -> 1
+      sameArguments("/")(_ =>IntNum(1)),
+      // x or x -> x
+      sameArguments("or")(identity),
+      // x == x -> true
+      sameArguments("==")(_ => TrueConst()),
+      sameArguments("<=")(_ => TrueConst()),
+      sameArguments(">=")(_ => TrueConst()),
+      sameArguments("!=")(_ => FalseConst()),
+      // x < x -> false
+      sameArguments("<")(_ => FalseConst()),
+      // x > x -> false
+      sameArguments(">")(_ => FalseConst()),
+      // x and x -> x
+      sameArguments("and")(identity),
+
+      // x and true  -> x
+      oneSpecialArgument("and")(_ == TrueConst(), identity),
+      // x and false -> false
+      oneSpecialArgument("and")(_ == FalseConst(), _ => FalseConst()),
+      // x or true -> true
+      oneSpecialArgument("or")(_ == TrueConst(), _ => TrueConst()),
+      // x or false -> x
+      oneSpecialArgument("or")(_ == FalseConst(), identity)
     )
 
     val expr2 = BinExpr(expr.op, simplify(expr.left), simplify(expr.right))
 
-    simplifiers
+    rootBinarySimplifier
       .find(_.isDefinedAt(expr2))
       .map(func => func(expr2))
       .getOrElse(expr2)
   }
 
-  val powerSimplifier: PartialFunction[BinExpr, Node] ={
+  val powerSimplifier: PartialFunction[BinExpr, Node] = {
     // a^b * a^d = a^(b+d)
     case BinExpr("*", BinExpr("**", a, b), BinExpr("**", c, d)) if a.customEquals(c)=>
       binExprSimplifier(BinExpr("**", a, BinExpr("+", b, d)))
@@ -149,7 +170,7 @@ object Simplifier {
       if a.customEquals(c) && b.customEquals(d) => BinExpr("*", BinExpr("*", IntNum(4), a), b)
   }
 
-  val multiplicationSimplifier: PartialFunction[BinExpr, Node] ={
+  val multiplicationSimplifier: PartialFunction[BinExpr, Node] = {
     // ab - a = a*(b-1)
     case BinExpr("-", BinExpr("*", a, b), c)
       if a.customEquals(c) =>  binExprSimplifier(BinExpr("*", a, BinExpr("-", b, IntNum(1))))
@@ -186,25 +207,25 @@ object Simplifier {
 
   val constantsEvaluator: PartialFunction[BinExpr, Node] = {
     case BinExpr(op, leftNum:FloatNum, rightNum:FloatNum) =>
-      FloatNum(executeDoubleBinExpr(op, leftNum.value, rightNum.value))
+      FloatNum(evalBinExprDouble(op, leftNum.value, rightNum.value))
     case BinExpr(op, leftNum:IntNum, rightNum:FloatNum) =>
-      FloatNum(executeDoubleBinExpr(op, leftNum.value.toDouble, rightNum.value))
+      FloatNum(evalBinExprDouble(op, leftNum.value.toDouble, rightNum.value))
     case BinExpr(op, leftNum:FloatNum, rightNum:IntNum) =>
-      FloatNum(executeDoubleBinExpr(op, leftNum.value, rightNum.value.toDouble))
+      FloatNum(evalBinExprDouble(op, leftNum.value, rightNum.value.toDouble))
     case BinExpr(op, leftNum:IntNum, rightNum:IntNum) =>
-      IntNum(executeIntBinExpr(op, leftNum.value, rightNum.value))
+      IntNum(evalBinExprInt(op, leftNum.value, rightNum.value))
   }
 
-  val divisionAndCommutativitySimplifier: PartialFunction[BinExpr, Node]={
+  val divisionAndCommutativitySimplifier: PartialFunction[BinExpr, Node]= {
     // 1/(1/c) = c
     case BinExpr("/", a, BinExpr("/", b, c))
-      if isOne(a) && isOne(b) => c
+      if oneEquality(a) && oneEquality(b) => c
     // a*(1/c) = a/c
     case BinExpr("*", a, BinExpr("/", b, c))
-      if isOne(b) => BinExpr("/", a, c)
+      if oneEquality(b) => BinExpr("/", a, c)
     // (1/c)*a = a/c
     case BinExpr("*", BinExpr("/", b, c), a)
-      if isOne(b) => BinExpr("/", a, c)
+      if oneEquality(b) => BinExpr("/", a, c)
     // a+b-a = b
     case BinExpr("+", a, BinExpr("-", b, c))
       if a.customEquals(c) => b
@@ -226,7 +247,7 @@ object Simplifier {
   }
 
 
-  val BinExprMinusesSimplifier: PartialFunction[BinExpr, Node] ={
+  val binExprMinusesSimplifier: PartialFunction[BinExpr, Node] = {
     // -a+(-b) = -(a+b)
     case BinExpr("+", Unary("-", leftNode), Unary("-", rightNode))  =>
       Unary("-", BinExpr("+", leftNode, rightNode))
@@ -238,26 +259,26 @@ object Simplifier {
       binExprSimplifier(BinExpr("-", leftNode, rightNode))
   }
 
-  val concatenationSimplifier: PartialFunction[BinExpr, Node] ={
+  val concatenationSimplifier: PartialFunction[BinExpr, Node] = {
     case BinExpr("+", ElemList(list1), ElemList(list2))  =>
       ElemList(list1++list2)
     case BinExpr("+", Tuple(list1), Tuple(list2))  =>
       Tuple(list1++list2)
   }
 
-  def ifSameArguments(op:String)(result:Node=>Node): PartialFunction[BinExpr, Node] ={
+  def sameArguments(op:String)(result:Node=>Node): PartialFunction[BinExpr, Node] = {
     case BinExpr(`op`, left, right) if left.customEquals(right) =>
       result(left)
   }
 
-  def conditionForOne(op:String)(condition:Node=>Boolean, result:Node=>Node): PartialFunction[BinExpr, Node] ={
+  def oneSpecialArgument(op:String)(condition:Node=>Boolean, result:Node=>Node): PartialFunction[BinExpr, Node] = {
     case BinExpr(`op`, left, right) if condition(left) =>
       result(right)
     case BinExpr(`op`, left, right) if condition(right) =>
       result(left)
   }
 
-  def isZero(node:Node)={
+  def zeroEquality(node:Node)= {
     node match {
       case IntNum(0) => true
       case FloatNum(0.0) => true
@@ -265,7 +286,7 @@ object Simplifier {
     }
   }
 
-  def isOne(node:Node)={
+  def oneEquality(node:Node)= {
     node match {
       case IntNum(1) => true
       case FloatNum(1.0) => true
@@ -273,7 +294,7 @@ object Simplifier {
     }
   }
 
-  def executeIntBinExpr(op:String, left:Int, right:Int):Int={
+  def evalBinExprInt(op:String, left:Int, right:Int):Int= {
     op match {
       case "**" => math.pow(left, right).toInt
       case "*" => left * right
@@ -283,7 +304,7 @@ object Simplifier {
     }
   }
 
-  def executeDoubleBinExpr(op:String, left:Double, right:Double):Double={
+  def evalBinExprDouble(op:String, left:Double, right:Double):Double= {
     op match {
       case "**" => math.pow(left, right)
       case "*" => left * right
