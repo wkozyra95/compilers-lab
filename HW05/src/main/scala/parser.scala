@@ -46,7 +46,7 @@ class Parser extends JavaTokenParsers {
 
   def const: Parser[Node] = (
         floatLiteral ^^ FloatNum
-      | intLiteral   ^^ IntNum
+      | intLiteral ^^ IntNum
       | stringLiteral ^^ StringConst
       | "True"  ^^^ TrueConst()
       | "False" ^^^ FalseConst()
@@ -107,14 +107,10 @@ class Parser extends JavaTokenParsers {
   }
 
 
-  def binary(level: Int): Parser[Node] = (
-      if (level>maxPrec) power
-      else chainl1(binary(level+1), binaryOp(level)) // equivalent to binary(level+1) * binaryOp(level)
-  )
+  def binary(level: Int): Parser[Node] = if (level > maxPrec) power
+  else chainl1(binary(level + 1), binaryOp(level)) // equivalent to binary(level+1) * binaryOp(level)
 
-  def power: Parser[Node] = (
-    rep1sep(unary,"**") ^^ {  list => list.reduceRight((left ,right) => BinExpr("**", left, right))  }
-  )
+  def power: Parser[Node] = rep1sep(unary, "**") ^^ { list => list.reduceRight((left, right) => BinExpr("**", left, right)) }
 
   // operator precedence parsing takes place here
   def binaryOp(level: Int): Parser[((Node, Node) => BinExpr)] = {
@@ -244,29 +240,27 @@ class Parser extends JavaTokenParsers {
 
 
 
-  def if_else_stmt: Parser[Node] = (
-        "if" ~> expression ~ (":" ~> suite) ~ ("elif" ~> expression~(":" ~> suite)).* ~ ("else"~":" ~> suite).? ^^ {
-          case expression ~ suite1 ~ Nil ~ Some(suite2) => IfElseInstr(expression, suite1, suite2)
-          case expression ~ suite ~ Nil ~ None => IfInstr(expression, suite)
-          case expression ~ suite1 ~ elifList ~ else1 =>
-              val elif = elifList.map{case express ~ suit => (express, suit)}
+  def if_else_stmt: Parser[Node] = "if" ~> expression ~ (":" ~> suite) ~ ("elif" ~> expression ~ (":" ~> suite)).* ~ ("else" ~ ":" ~> suite).? ^^ {
+    case expression ~ suite1 ~ Nil ~ Some(suite2) => IfElseInstr(expression, suite1, suite2)
+    case expression ~ suite ~ Nil ~ None => IfInstr(expression, suite)
+    case expression ~ suite1 ~ elifList ~ else1 =>
+      val elif = elifList.map { case express ~ suit => (express, suit) }
 
-            def fun(elifs: List[(Node,Node)], else2:Option[Node]): Node={
-              elifs match{
-                case Nil => else2.getOrElse(EmptyNode)
-                case (headCond,headInstr) :: tail =>
-                  val elseInstr = fun(tail, else2)
-                  if (elseInstr == EmptyNode)
-                    NodeList(List(IfInstr(headCond,headInstr)))
-                  else
-                    NodeList(List(IfElseInstr(headCond,headInstr,elseInstr)))
-              }
-            }
-
-
-            IfElseInstr(expression, suite1, fun(elif, else1))
+      def fun(elifs: List[(Node, Node)], else2: Option[Node]): Node = {
+        elifs match {
+          case Nil => else2.getOrElse(EmptyNode)
+          case (headCond, headInstr) :: tail =>
+            val elseInstr = fun(tail, else2)
+            if (elseInstr == EmptyNode)
+              NodeList(List(IfInstr(headCond, headInstr)))
+            else
+              NodeList(List(IfElseInstr(headCond, headInstr, elseInstr)))
         }
-  )
+      }
+
+
+      IfElseInstr(expression, suite1, fun(elif, else1))
+  }
 
 
   def while_stmt: Parser[WhileInstr] = "while" ~> expression ~ (":"~>suite) ^^ {
