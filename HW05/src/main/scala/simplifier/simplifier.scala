@@ -10,36 +10,38 @@ object Simplifier {
   def simplify(node: Node): Node = {
     node match {
       case NodeList(list) =>
-        val newList = list.map(simplify).filter(_ != EmptyNode)
+        val newList = list
+          .map(n => simplify(n))
+          .filter(_ != EmptyNode)
 
-        val pairs = newList.dropRight(1).zip(newList.drop(1))
-        val assignmentsToDelete = pairs.collect{
-          case (x @ Assignment(var1, expr1), Assignment(var2, expr2)) if var1 == var2 =>
-            x
+        val consecutiveNodes = newList
+          .dropRight(1).zip(newList.drop(1))
+          .collect {
+            case (x @ Assignment(var1, expr1), Assignment(var2, expr2)) if var1 == var2 => x
+          }
+
+        newList.diff(consecutiveNodes) match {
+          case List() => EmptyNode
+          case List(NodeList(nestedList))=> NodeList(nestedList)
+          case justList => NodeList(justList)
         }
 
-        newList.diff(assignmentsToDelete) match {
-          case List() =>
-            EmptyNode
-          case List(NodeList(nestedList))=>
-            NodeList(nestedList)
-          case justList =>
-            NodeList(justList)
-        }
+      case expr:BinExpr => binExprSimplifier(expr)
+      case unary:Unary => unarySimplifier(unary)
 
-      case expr:BinExpr=>
-        binExprSimplifier(expr)
-      case unary:Unary=>
-        unarySimplifier(unary)
-
-      case Assignment(a, b) if a == simplify(b) =>
-        EmptyNode
-      case Assignment(a, b) =>
-        Assignment(a, simplify(b))
-      case WhileInstr(cond, body) if simplify(cond) == FalseConst() =>
-        EmptyNode
+      case Assignment(a, b) if a == simplify(b) => EmptyNode
+      case Assignment(a, b) => Assignment(a, simplify(b))
+      case WhileInstr(cond, body) if simplify(cond) == FalseConst() => EmptyNode
       case KeyDatumList(list)=>
-        KeyDatumList(list.groupBy(_.key).map{case(key, values)=>values.last}.toList)
+        KeyDatumList(
+          list
+            .groupBy(_.key)
+            .map {
+              case(key, values) => values.last
+            }.toList
+        )
+
+
       case IfElseInstr(cond, left, _) if simplify(cond) == TrueConst()  =>
         simplify(left)
       case IfElseInstr(cond, _, right) if simplify(cond) == FalseConst() =>
@@ -53,7 +55,7 @@ object Simplifier {
     }
   }
 
-  def unarySimplifier(unary:Unary)= {
+  def unarySimplifier(unary: Unary): Node= {
     val reverseCompareOperator = Map(
       "==" -> "!=",
       "!=" -> "==",
@@ -64,22 +66,22 @@ object Simplifier {
     )
 
     (unary.op, simplify(unary.expr)) match {
-        // not ( x > y) -> x <= y
+      // not ( x > y) -> x <= y
       case ("not", BinExpr(op, left, right)) if reverseCompareOperator.contains(op) =>
         BinExpr(reverseCompareOperator(op), left, right)
       case ("-", Unary("-", node)) => node
-        // - - x -> x
+      // - - x -> x
       case ("not", Unary("not", node)) => node
-        // not not x -> x
+      // not not x -> x
       case ("not", TrueConst()) => FalseConst()
-        // not false -> true
+      // not false -> true
       case ("not", FalseConst()) => TrueConst()
       case (op, node) => Unary(op, node)
     }
   }
 
 
-  def binExprSimplifier(expr:BinExpr):Node= {
+  def binExprSimplifier(expr: BinExpr): Node= {
 
     val rootBinarySimplifier = List(
       constantsEvaluator,
@@ -90,20 +92,20 @@ object Simplifier {
       powerSimplifier,
 
       // x + 0 -> x
-      oneSpecialArgument("+")(zeroEquality, result = identity),
+      oneSpecialArgument("+")(zeroEquality, result = a => a),
       // x + [] -> x
-      oneSpecialArgument("+")(_ == ElemList(List()), result = identity),
+      oneSpecialArgument("+")(_ == ElemList(List()), result = a => a),
       // x * 0 -> 0
       oneSpecialArgument("*")(zeroEquality, result = _ => IntNum(0)),
       // x * 1 -> x
-      oneSpecialArgument("*")(oneEquality, result = identity),
+      oneSpecialArgument("*")(oneEquality, result = a => a),
 
       // x - x -> 0
       sameArguments("-")(_ => IntNum(0)),
       // x / x -> 1
       sameArguments("/")(_ =>IntNum(1)),
       // x or x -> x
-      sameArguments("or")(identity),
+      sameArguments("or")(a => a),
       // x == x -> true
       sameArguments("==")(_ => TrueConst()),
       sameArguments("<=")(_ => TrueConst()),
@@ -114,36 +116,37 @@ object Simplifier {
       // x > x -> false
       sameArguments(">")(_ => FalseConst()),
       // x and x -> x
-      sameArguments("and")(identity),
+      sameArguments("and")(a => a),
 
       // x and true  -> x
-      oneSpecialArgument("and")(_ == TrueConst(), identity),
+      oneSpecialArgument("and")(_ == TrueConst(), a => a),
       // x and false -> false
       oneSpecialArgument("and")(_ == FalseConst(), _ => FalseConst()),
       // x or true -> true
       oneSpecialArgument("or")(_ == TrueConst(), _ => TrueConst()),
       // x or false -> x
-      oneSpecialArgument("or")(_ == FalseConst(), identity)
+      oneSpecialArgument("or")(_ == FalseConst(), a => a)
     )
 
-    val expr2 = BinExpr(expr.op, simplify(expr.left), simplify(expr.right))
+    val simplifiedPartially = BinExpr(expr.op, simplify(expr.left), simplify(expr.right))
 
     rootBinarySimplifier
-      .find(_.isDefinedAt(expr2))
-      .map(func => func(expr2))
-      .getOrElse(expr2)
+      .find(x => x.isDefinedAt(simplifiedPartially))
+      .map(func => func(simplifiedPartially))
+      .getOrElse(simplifiedPartially)
   }
+
   def sameArguments
-  (op:String)
-  (result:Node=>Node)
+  (op: String)
+  (result: Node => Node)
   : PartialFunction[BinExpr, Node] = {
     case BinExpr(`op`, left, right) if left.customEquals(right) =>
       result(left)
   }
 
   def oneSpecialArgument
-  (op:String)
-  (condition:Node=>Boolean, result:Node=>Node):
+  (op: String)
+  (condition: Node => Boolean, result: Node => Node):
   PartialFunction[BinExpr, Node] = {
     case BinExpr(`op`, left, right) if condition(left) =>
       result(right)
@@ -163,27 +166,27 @@ object Simplifier {
     case BinExpr("**", BinExpr("**", a, b), c) => BinExpr("**", a, BinExpr("*", b, c))
     // a^2 + 2ac + c^2 = (a+c)^2
     case BinExpr("+",
-          BinExpr("+",
-            BinExpr("**", a, IntNum(2)),
-            BinExpr("*", BinExpr("*", IntNum(2), b), c)
-            ),
-            BinExpr("**", d, IntNum(2))
-            )
+    BinExpr("+",
+    BinExpr("**", a, IntNum(2)),
+    BinExpr("*", BinExpr("*", IntNum(2), b), c)
+    ),
+    BinExpr("**", d, IntNum(2))
+    )
       if a.customEquals(b) && c.customEquals(d) => BinExpr("**", BinExpr("+", a, c), IntNum(2))
     // (a+b)^2 - a^2 -2ba = b^2
     case BinExpr("-",
-          BinExpr("-",
-            BinExpr("**", BinExpr("+", a, b), IntNum(2)),
-            BinExpr("**", c, IntNum(2))
-            ),
-          BinExpr("*", BinExpr("*", IntNum(2), d), e)
-          )
+    BinExpr("-",
+    BinExpr("**", BinExpr("+", a, b), IntNum(2)),
+    BinExpr("**", c, IntNum(2))
+    ),
+    BinExpr("*", BinExpr("*", IntNum(2), d), e)
+    )
       if a.customEquals(c) && c.customEquals(d) && b.customEquals(e)=> BinExpr("**", b, IntNum(2))
     // (a+b)^2 - (c-a)^2 = 4ab
     case BinExpr("-",
-          BinExpr("**", BinExpr("+", a, b), IntNum(2)),
-          BinExpr("**", BinExpr("-", c, d), IntNum(2))
-          )
+    BinExpr("**", BinExpr("+", a, b), IntNum(2)),
+    BinExpr("**", BinExpr("-", c, d), IntNum(2))
+    )
       if a.customEquals(c) && b.customEquals(d) => BinExpr("*", BinExpr("*", IntNum(4), a), b)
   }
 
@@ -214,11 +217,11 @@ object Simplifier {
       if b.customEquals(d) => binExprSimplifier(BinExpr("*", BinExpr("+", a, c), b))
     // a*(b+c) + db + dc = (a+d)*(b+c)
     case BinExpr("+",
-          BinExpr("+",  BinExpr("*", a, BinExpr("+", b, c)),  BinExpr("*", d, e)),
-          BinExpr("*", f, g)
-          )
+    BinExpr("+",  BinExpr("*", a, BinExpr("+", b, c)),  BinExpr("*", d, e)),
+    BinExpr("*", f, g)
+    )
       if b.customEquals(e) && c.customEquals(g) && d.customEquals(f) =>
-        BinExpr("*",  BinExpr("+",  a,  d),  BinExpr("+",  b,  c))
+      BinExpr("*",  BinExpr("+",  a,  d),  BinExpr("+",  b,  c))
 
   }
 
@@ -282,8 +285,6 @@ object Simplifier {
       Tuple(list1 ++ list2)
   }
 
-
-
   def zeroEquality(node:Node)= {
     node match {
       case IntNum(0) => true
@@ -292,7 +293,7 @@ object Simplifier {
     }
   }
 
-  def oneEquality(node:Node)= {
+  def oneEquality(node:Node): Boolean = {
     node match {
       case IntNum(1) => true
       case FloatNum(1.0) => true
@@ -300,7 +301,7 @@ object Simplifier {
     }
   }
 
-  def evalBinExprInt(op:String, left:Int, right:Int):Int= {
+  def evalBinExprInt(op: String, left: Int, right: Int): Int= {
     op match {
       case "**" => math.pow(left, right).toInt
       case "*" => left * right
@@ -310,7 +311,7 @@ object Simplifier {
     }
   }
 
-  def evalBinExprDouble(op:String, left:Double, right:Double):Double= {
+  def evalBinExprDouble(op: String, left: Double, right: Double): Double= {
     op match {
       case "**" => math.pow(left, right)
       case "*" => left * right
